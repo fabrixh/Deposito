@@ -99,6 +99,25 @@
   nav button.on{color:var(--accent);border-color:var(--accent)}
   nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+  /* ---------- sun panel ---------- */
+  #sunPanel{
+    position:fixed;left:14px;right:14px;bottom:calc(66px + env(safe-area-inset-bottom));
+    z-index:12;display:none;max-width:430px;margin:0 auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;backdrop-filter:blur(10px);
+  }
+  #sunPanel.open{display:block}
+  .sun-label{
+    font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;
+    letter-spacing:.18em;color:var(--accent);text-align:center;margin-bottom:8px;
+  }
+  .sun-row{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .sun-row span{
+    font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;
+    letter-spacing:.14em;color:var(--muted);width:58px;flex:none;
+  }
+  .sun-row input{flex:1;accent-color:var(--accent);min-height:22px}
+
   /* ---------- info panel ---------- */
   #info{
     position:fixed;inset:0;z-index:20;display:none;
@@ -173,9 +192,17 @@
   <button id="bColor">⬜ BLANCO</button>
   <button id="bProfile">▤ TRAPEZOIDAL</button>
   <button id="bFrame">ESTRUCTURA</button>
+  <button id="bSun">☀ SOL</button>
   <button id="bInfo">INFO</button>
   <button id="bTheme">☀ CLARO</button>
 </nav>
+
+<div id="sunPanel">
+  <div class="sun-label" id="sunLabel">☀ JULIO · 12:00 HS</div>
+  <div class="sun-row"><span>MES</span><input type="range" id="sMonth" min="0" max="11" step="1" value="6"></div>
+  <div class="sun-row"><span>HORA</span><input type="range" id="sHour" min="7" max="19" step="0.5" value="12"></div>
+  <div class="sun-row"><span>ORIENT.</span><input type="range" id="sOrient" min="0" max="355" step="5" value="0"></div>
+</div>
 
 <a class="wa" href="https://wa.me/543804985423?text=Hola!%20Me%20interesa%20el%20dep%C3%B3sito%20exterior%20de%20200x80x216" target="_blank" rel="noopener" aria-label="Consultar por WhatsApp">
   <svg viewBox="0 0 24 24"><path d="M12 .5C5.7.5.6 5.6.6 11.9c0 2 .5 4 1.5 5.7L.5 23.5l6.1-1.6c1.7.9 3.5 1.4 5.4 1.4 6.3 0 11.4-5.1 11.4-11.4C23.4 5.6 18.3.5 12 .5zm0 20.8c-1.7 0-3.4-.5-4.8-1.3l-.3-.2-3.6 1 1-3.5-.2-.4c-1-1.5-1.5-3.2-1.5-5 0-5.2 4.2-9.4 9.4-9.4s9.4 4.2 9.4 9.4-4.2 9.4-9.4 9.4zm5.2-7c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.8-1.4-1.7-1.6-2-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg>
@@ -360,6 +387,24 @@
   ground.receiveShadow=true;
   scene.add(ground);
 
+  // north marker (visible in sun mode)
+  const cv=document.createElement('canvas');cv.width=cv.height=128;
+  const cx2=cv.getContext('2d');
+  cx2.fillStyle='#C9A84C';
+  cx2.font='bold 84px Barlow Condensed, Arial, sans-serif';
+  cx2.textAlign='center';cx2.textBaseline='middle';
+  cx2.fillText('N',64,52);
+  cx2.beginPath();cx2.moveTo(64,10);cx2.lineTo(50,110);cx2.lineTo(78,110);cx2.closePath();
+  cx2.globalAlpha=0.25;cx2.fill();
+  const compass=new THREE.Mesh(
+    new THREE.PlaneGeometry(70,70),
+    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false})
+  );
+  compass.rotation.x=-Math.PI/2;
+  compass.position.set(0,0.6,-360);
+  compass.visible=false;
+  scene.add(compass);
+
   /* ---------- camera control ---------- */
   const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let theta=0.65, phi=1.28, radius=460;
@@ -473,6 +518,63 @@
     bFrame.classList.toggle('on',structureMode);
   };
 
+  /* ---------- sun simulation (La Rioja, lat -29.4°) ---------- */
+  const LAT=-29.4*Math.PI/180;
+  const MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const RUMBOS=['NORTE','NORESTE','ESTE','SUDESTE','SUR','SUDOESTE','OESTE','NOROESTE'];
+  const bSun=document.getElementById('bSun');
+  const sunPanel=document.getElementById('sunPanel');
+  const sunLabel=document.getElementById('sunLabel');
+  const sMonth=document.getElementById('sMonth');
+  const sHour=document.getElementById('sHour');
+  const sOrient=document.getElementById('sOrient');
+  let sunMode=false;
+  const keyHome={pos:key.position.clone(),color:key.color.clone(),intensity:key.intensity};
+  const cSunset=new THREE.Color(0xff8c42), cNoon=new THREE.Color(0xfff4e0);
+
+  function updateSun(){
+    const m=+sMonth.value, h=+sHour.value, o=+sOrient.value;
+    shed.rotation.y=o*Math.PI/180;
+    // solar declination for mid-month day
+    const N=Math.round(m*30.4+15);
+    const dec=-23.44*Math.PI/180*Math.cos(2*Math.PI*(N+10)/365);
+    const HA=(h-12)*15*Math.PI/180;
+    const sinAlt=Math.sin(LAT)*Math.sin(dec)+Math.cos(LAT)*Math.cos(dec)*Math.cos(HA);
+    const alt=Math.asin(sinAlt);
+    let cosAz=(Math.sin(dec)-sinAlt*Math.sin(LAT))/(Math.cos(alt)*Math.cos(LAT));
+    cosAz=Math.min(1,Math.max(-1,cosAz));
+    let az=Math.acos(cosAz);          // 0..π desde el norte
+    if(HA>0)az=2*Math.PI-az;          // tarde → lado oeste
+    // norte = -z, este = +x
+    const R=620, ce=Math.cos(alt);
+    key.position.set(R*ce*Math.sin(az), R*Math.max(sinAlt,0.03), -R*ce*Math.cos(az));
+    const up=Math.max(sinAlt,0), t=Math.min(1,up/0.5);
+    key.color.copy(cSunset).lerp(cNoon,t);
+    key.intensity=sinAlt<=0?0.05:0.55+0.9*t;
+    hemi.intensity=sinAlt<=0?0.25:0.4+0.35*t;
+    // label
+    const hh=Math.floor(h), mm=h%1?'30':'00';
+    const bearing=(180-o+360)%360;
+    const rumbo=RUMBOS[Math.round(bearing/45)%8];
+    sunLabel.textContent=(sinAlt<=0?'🌙 ':'☀ ')+MESES[m]+' · '+hh+':'+mm+' HS · PUERTAS AL '+rumbo;
+  }
+  [sMonth,sHour,sOrient].forEach(s=>s.addEventListener('input',()=>{if(sunMode)updateSun();}));
+  bSun.onclick=()=>{
+    sunMode=!sunMode;
+    bSun.classList.toggle('on',sunMode);
+    sunPanel.classList.toggle('open',sunMode);
+    compass.visible=sunMode;
+    if(sunMode){
+      updateSun();
+    }else{
+      key.position.copy(keyHome.pos);
+      key.color.copy(keyHome.color);
+      key.intensity=keyHome.intensity;
+      hemi.intensity=document.body.classList.contains('light')?1.0:0.85;
+      shed.rotation.y=0;
+    }
+  };
+
   const info=document.getElementById('info');
   document.getElementById('bInfo').onclick=()=>info.classList.add('open');
   document.getElementById('bClose').onclick=()=>info.classList.remove('open');
@@ -487,7 +589,7 @@
     scene.background=new THREE.Color(light?0xf2f0ec:0x101012);
     scene.fog=new THREE.Fog(light?0xf2f0ec:0x101012,900,1800);
     groundMat.color.set(light?0xe4e1da:0x141416);
-    hemi.intensity=light?1.0:0.85;
+    if(!sunMode)hemi.intensity=light?1.0:0.85;
   };
   scene.background=new THREE.Color(0x101012);
   scene.fog=new THREE.Fog(0x101012,900,1800);
