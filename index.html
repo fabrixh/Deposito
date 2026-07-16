@@ -383,7 +383,7 @@
 
   /* ---------- ground ---------- */
   const groundMat=new THREE.MeshStandardMaterial({color:0x141416,roughness:1,metalness:0});
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(1250,64),groundMat);
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(1650,64),groundMat);
   ground.rotation.x=-Math.PI/2;
   ground.receiveShadow=true;
   scene.add(ground);
@@ -415,7 +415,7 @@
     sunIntensity:{value:1.0}
   };
   const sky=new THREE.Mesh(
-    new THREE.SphereGeometry(1700,32,20),
+    new THREE.SphereGeometry(2900,32,20),
     new THREE.ShaderMaterial({
       uniforms:skyUni,
       side:THREE.BackSide,
@@ -454,7 +454,7 @@
   }
   const dirtTex=new THREE.CanvasTexture(gc);
   dirtTex.wrapS=dirtTex.wrapT=THREE.RepeatWrapping;
-  dirtTex.repeat.set(8,8);
+  dirtTex.repeat.set(12,12);
 
   /* ---------- mountains to the west (Sierra de Velasco) ---------- */
   function ridge(R,a0,a1,Hmax,segs,seed){
@@ -478,9 +478,13 @@
     g.setIndex(idx);
     return g;
   }
+  const matFar2=new THREE.MeshBasicMaterial({color:0xa9bcd6,side:THREE.DoubleSide,fog:false});
+  const matMid2=new THREE.MeshBasicMaterial({color:0x7b91b3,side:THREE.DoubleSide,fog:false});
   const matFar=new THREE.MeshBasicMaterial({color:0x8fa7c4,side:THREE.DoubleSide,fog:false});
   const matNear=new THREE.MeshBasicMaterial({color:0x55688a,side:THREE.DoubleSide,fog:false});
   const mountains=new THREE.Group();
+  mountains.add(new THREE.Mesh(ridge(2080,193,347,540,170,77777),matFar2));
+  mountains.add(new THREE.Mesh(ridge(1760,203,337,430,160,33333),matMid2));
   mountains.add(new THREE.Mesh(ridge(1480,213,327,345,150,12345),matFar));
   mountains.add(new THREE.Mesh(ridge(1180,231,309,195,120,54321),matNear));
   mountains.visible=false;
@@ -488,13 +492,14 @@
 
   /* ---------- vegetation & rocks (monte riojano) ---------- */
   const mFarVeg=new THREE.MeshBasicMaterial({color:0x39452e,fog:false});
-  const cloudMat=new THREE.MeshStandardMaterial({color:0xf4f4f2,roughness:1,flatShading:true,fog:false});
+  const mFarVeg2=new THREE.MeshBasicMaterial({color:0x46523a,fog:false});
   const veg=new THREE.Group();
   {
     let vs=98765;
     const rnd=()=>{vs=(vs*16807)%2147483647;return vs/2147483647;};
     const mTrunk=new THREE.MeshStandardMaterial({color:0x6b4a32,roughness:.95,flatShading:true});
     const mLeaf =new THREE.MeshStandardMaterial({color:0x5c6e3c,roughness:.9,flatShading:true});
+    const mLeaf2=new THREE.MeshStandardMaterial({color:0x74854a,roughness:.9,flatShading:true});
     const mBush =new THREE.MeshStandardMaterial({color:0x6a743f,roughness:.95,flatShading:true});
     const mCact =new THREE.MeshStandardMaterial({color:0x4f7a4a,roughness:.85,flatShading:true});
     const mRock =new THREE.MeshStandardMaterial({color:0x8a8074,roughness:1,flatShading:true});
@@ -508,7 +513,7 @@
       const nf=2+Math.round(rnd());
       for(let j=0;j<nf;j++){
         const r=24+rnd()*16;
-        const f=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mLeaf);
+        const f=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),rnd()<.5?mLeaf:mLeaf2);
         f.position.set((rnd()-.5)*34,h+r*.5+rnd()*12,(rnd()-.5)*34);
         f.scale.y=.55+rnd()*.15;
         f.rotation.y=rnd()*Math.PI;
@@ -565,69 +570,99 @@
       g.position.set(x,0,z);g.rotation.y=rnd()*6.28;
       veg.add(g);
     }
+    // chañares secos (árboles sin hojas)
+    const mDry=new THREE.MeshStandardMaterial({color:0x7a6a55,roughness:1,flatShading:true});
+    for(let i=0;i<5;i++){
+      const [x,z]=spot(420,900), t=new THREE.Group();
+      const h=35+rnd()*25;
+      const tr=new THREE.Mesh(new THREE.CylinderGeometry(2.2,4,h,5),mDry);
+      tr.position.y=h/2;tr.castShadow=true;t.add(tr);
+      const nb=2+Math.round(rnd());
+      for(let j=0;j<nb;j++){
+        const bl=14+rnd()*14;
+        const g=new THREE.CylinderGeometry(1.1,1.9,bl,4);
+        g.translate(0,bl/2,0);
+        const br=new THREE.Mesh(g,mDry);
+        br.position.y=h*(.55+rnd()*.3);
+        br.rotation.set(0,rnd()*6.28,(rnd()-.5)*1.7);
+        br.castShadow=true;t.add(br);
+      }
+      t.position.set(x,0,z);t.rotation.y=rnd()*6.28;
+      veg.add(t);
+    }
+    // tunas (pencas)
+    const mTuna=new THREE.MeshStandardMaterial({color:0x5d8452,roughness:.9,flatShading:true});
+    for(let i=0;i<6;i++){
+      const [x,z]=spot(400,880), t=new THREE.Group();
+      const np=3+Math.round(rnd()*2);
+      for(let j=0;j<np;j++){
+        const r=7+rnd()*5;
+        const p=new THREE.Mesh(new THREE.SphereGeometry(r,7,6),mTuna);
+        p.scale.set(1,1.25,.28);
+        p.position.set((rnd()-.5)*14,r*.9+j*7,(rnd()-.5)*6);
+        p.rotation.y=(rnd()-.5)*1.2;
+        p.rotation.z=(rnd()-.5)*.7;
+        p.castShadow=true;t.add(p);
+      }
+      t.position.set(x,0,z);t.rotation.y=rnd()*6.28;
+      veg.add(t);
+    }
+    // chaguares (roseta espinosa)
+    const mAgave=new THREE.MeshStandardMaterial({color:0x77836a,roughness:.9,flatShading:true});
+    for(let i=0;i<6;i++){
+      const [x,z]=spot(410,900), t=new THREE.Group();
+      const nl=6+Math.round(rnd()*3);
+      for(let j=0;j<nl;j++){
+        const ll=14+rnd()*10;
+        const g=new THREE.ConeGeometry(2.4,ll,4);
+        g.translate(0,ll/2,0);
+        const leaf=new THREE.Mesh(g,mAgave);
+        leaf.rotation.x=.45+rnd()*.5;
+        leaf.castShadow=true;
+        const lg=new THREE.Group();
+        lg.rotation.y=(j/nl)*6.28+rnd()*.3;
+        lg.add(leaf);t.add(lg);
+      }
+      t.position.set(x,0,z);
+      veg.add(t);
+    }
+    // retamos
+    const mRetamo=new THREE.MeshStandardMaterial({color:0x8a9448,roughness:.95,flatShading:true});
+    for(let i=0;i<8;i++){
+      const [x,z]=spot(400,930), r=6+rnd()*6;
+      const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mRetamo);
+      b.position.set(x,r*1.1,z);
+      b.scale.y=1.7+rnd()*.5;
+      b.rotation.y=rnd()*6.28;
+      b.castShadow=true;veg.add(b);
+    }
     // monte intermedio
     const mMid=new THREE.MeshStandardMaterial({color:0x55603a,roughness:1,flatShading:true});
-    for(let i=0;i<60;i++){
-      const [x,z]=spot(860,1080), r=4+rnd()*7;
+    for(let i=0;i<90;i++){
+      const [x,z]=spot(860,1140), r=4+rnd()*7;
       const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mMid);
       b.position.set(x,r*.4,z);b.scale.y=.6;b.rotation.y=rnd()*6.28;
       veg.add(b);
     }
     // monte al pie de las sierras (oeste)
-    for(let i=0;i<55;i++){
-      const A=(215+rnd()*110)*Math.PI/180, R=1060+rnd()*110, r=3.5+rnd()*5;
+    for(let i=0;i<90;i++){
+      const A=(205+rnd()*130)*Math.PI/180, R=1000+rnd()*160, r=3.5+rnd()*5;
       const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mFarVeg);
       b.position.set(R*Math.sin(A),r*.35,-R*Math.cos(A));
       b.scale.y=.6;b.rotation.y=rnd()*6.28;
       veg.add(b);
     }
+    // monte lejano entre cordones
+    for(let i=0;i<70;i++){
+      const A=(200+rnd()*140)*Math.PI/180, R=1240+rnd()*220, r=4+rnd()*6;
+      const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mFarVeg2);
+      b.position.set(R*Math.sin(A),r*.35,-R*Math.cos(A));
+      b.scale.y=.6;
+      veg.add(b);
+    }
   }
   veg.visible=false;
   scene.add(veg);
-
-  /* ---------- nubes ---------- */
-  const clouds=new THREE.Group();
-  {
-    let cs=24680;
-    const rnd=()=>{cs=(cs*16807)%2147483647;return cs/2147483647;};
-    for(let i=0;i<5;i++){
-      const c=new THREE.Group();
-      const n=3+Math.round(rnd()*2);
-      for(let j=0;j<n;j++){
-        const r=26+rnd()*32;
-        const p=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),cloudMat);
-        p.position.set((j-(n-1)/2)*r*1.1+(rnd()-.5)*20,(rnd()-.5)*14,(rnd()-.5)*30);
-        p.scale.y=.38+rnd()*.14;
-        c.add(p);
-      }
-      const a=rnd()*Math.PI*2, R=700+rnd()*500;
-      c.position.set(R*Math.sin(a),430+rnd()*240,-R*Math.cos(a));
-      clouds.add(c);
-    }
-  }
-  clouds.visible=false;
-  scene.add(clouds);
-
-  /* ---------- huella de tierra ---------- */
-  const pc=document.createElement('canvas');pc.width=128;pc.height=512;
-  const p2=pc.getContext('2d');
-  const grad=p2.createLinearGradient(0,0,128,0);
-  grad.addColorStop(0,'rgba(88,76,56,0)');
-  grad.addColorStop(.22,'rgba(88,76,56,.8)');
-  grad.addColorStop(.78,'rgba(88,76,56,.8)');
-  grad.addColorStop(1,'rgba(88,76,56,0)');
-  p2.fillStyle=grad;p2.fillRect(0,0,128,512);
-  p2.fillStyle='rgba(58,50,36,.5)';
-  p2.fillRect(38,0,12,512);p2.fillRect(78,0,12,512);
-  const path=new THREE.Mesh(
-    new THREE.PlaneGeometry(150,470),
-    new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(pc),transparent:true,depthWrite:false,roughness:1})
-  );
-  path.rotation.x=-Math.PI/2;
-  path.position.set(0,0.5,D/2+235);
-  path.receiveShadow=true;
-  path.visible=false;
-  shed.add(path);
 
   function updateSky(){
     if(!sky.visible)return;
@@ -645,11 +680,14 @@
       skyUni.sunIntensity.value=1.0;
     }
     skyUni.sunColor.value.copy(key.color);
+    matFar2.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x2b3a58),0.3);
+    matMid2.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x27334e),0.42);
     matFar.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x232f4a),0.5);
     matNear.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x131a2c),0.72);
     mFarVeg.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x2c3a26),0.62);
+    mFarVeg2.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x2e3b2a),0.45);
     scene.background=null;
-    scene.fog=new THREE.Fog(skyUni.horizonColor.value.getHex(),800,1600);
+    scene.fog=new THREE.Fog(skyUni.horizonColor.value.getHex(),1500,2600);
   }
 
   /* ---------- camera control ---------- */
@@ -698,7 +736,7 @@
     if(pts.size===2){
       const [a,b]=[...pts.values()];
       const d=Math.hypot(a.x-b.x,a.y-b.y);
-      tRadius=Math.min(950,Math.max(200,tRadius*(pinchDist/d)));
+      tRadius=Math.min(1500,Math.max(200,tRadius*(pinchDist/d)));
       pinchDist=d;
     }
   });
@@ -706,7 +744,7 @@
     canvas.addEventListener(ev,e=>pts.delete(e.pointerId)));
   canvas.addEventListener('wheel',e=>{
     e.preventDefault();
-    tRadius=Math.min(950,Math.max(200,tRadius+e.deltaY*0.5));
+    tRadius=Math.min(1500,Math.max(200,tRadius+e.deltaY*0.5));
   },{passive:false});
 
   /* ---------- UI ---------- */
@@ -832,8 +870,6 @@
     sky.visible=envMode;
     mountains.visible=envMode;
     veg.visible=envMode;
-    clouds.visible=envMode;
-    path.visible=envMode;
     if(envMode){
       groundMat.map=dirtTex;
       groundMat.color.set(0xffffff);
@@ -845,7 +881,7 @@
       const l=document.body.classList.contains('light');
       groundMat.color.set(l?0xe4e1da:0x141416);
       scene.background=new THREE.Color(l?0xf2f0ec:0x101012);
-      scene.fog=new THREE.Fog(l?0xf2f0ec:0x101012,900,1800);
+      scene.fog=new THREE.Fog(l?0xf2f0ec:0x101012,1500,2800);
     }
   };
 
@@ -862,13 +898,13 @@
     bTheme.textContent=light?'☾ OSCURO':'☀ CLARO';
     if(!envMode){
       scene.background=new THREE.Color(light?0xf2f0ec:0x101012);
-      scene.fog=new THREE.Fog(light?0xf2f0ec:0x101012,900,1800);
+      scene.fog=new THREE.Fog(light?0xf2f0ec:0x101012,1500,2800);
       groundMat.color.set(light?0xe4e1da:0x141416);
     }
     if(!sunMode)hemi.intensity=light?1.0:0.85;
   };
   scene.background=new THREE.Color(0x101012);
-  scene.fog=new THREE.Fog(0x101012,900,1800);
+  scene.fog=new THREE.Fog(0x101012,1500,2800);
 
   /* ---------- resize + loop ---------- */
   function resize(){
@@ -882,7 +918,6 @@
   function animate(){
     requestAnimationFrame(animate);
     if(auto)tTheta+=0.0032;
-    if(clouds.visible)clouds.rotation.y+=0.00012;
     applyCam();
     const goal=doorsOpen?1.9:0;               // ~109°
     doorAngle+=(goal-doorAngle)*(reduce?1:0.07);
