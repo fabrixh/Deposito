@@ -383,7 +383,7 @@
 
   /* ---------- ground ---------- */
   const groundMat=new THREE.MeshStandardMaterial({color:0x141416,roughness:1,metalness:0});
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(900,64),groundMat);
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(1250,64),groundMat);
   ground.rotation.x=-Math.PI/2;
   ground.receiveShadow=true;
   scene.add(ground);
@@ -487,6 +487,8 @@
   scene.add(mountains);
 
   /* ---------- vegetation & rocks (monte riojano) ---------- */
+  const mFarVeg=new THREE.MeshBasicMaterial({color:0x39452e,fog:false});
+  const cloudMat=new THREE.MeshStandardMaterial({color:0xf4f4f2,roughness:1,flatShading:true,fog:false});
   const veg=new THREE.Group();
   {
     let vs=98765;
@@ -498,8 +500,8 @@
     const mRock =new THREE.MeshStandardMaterial({color:0x8a8074,roughness:1,flatShading:true});
     function spot(minR,maxR){const a=rnd()*Math.PI*2,r=minR+rnd()*(maxR-minR);return [r*Math.sin(a),r*Math.cos(a)];}
     // algarrobos
-    for(let i=0;i<8;i++){
-      const [x,z]=spot(260,760), t=new THREE.Group();
+    for(let i=0;i<14;i++){
+      const [x,z]=spot(400,880), t=new THREE.Group();
       const h=40+rnd()*20;
       const tr=new THREE.Mesh(new THREE.CylinderGeometry(3.5,6,h,6),mTrunk);
       tr.position.y=h/2;tr.castShadow=true;t.add(tr);
@@ -516,8 +518,8 @@
       veg.add(t);
     }
     // jarillas
-    for(let i=0;i<18;i++){
-      const [x,z]=spot(230,800), r=8+rnd()*8;
+    for(let i=0;i<38;i++){
+      const [x,z]=spot(400,920), r=8+rnd()*8;
       const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mBush);
       b.position.set(x,r*.45,z);
       b.scale.y=.6+rnd()*.2;
@@ -525,8 +527,8 @@
       b.castShadow=true;veg.add(b);
     }
     // cardones
-    for(let i=0;i<5;i++){
-      const [x,z]=spot(250,720), c=new THREE.Group();
+    for(let i=0;i<8;i++){
+      const [x,z]=spot(410,860), c=new THREE.Group();
       const h=55+rnd()*35;
       const body=new THREE.Mesh(new THREE.CylinderGeometry(4.5,5.5,h,7),mCact);
       body.position.y=h/2;body.castShadow=true;c.add(body);
@@ -542,17 +544,90 @@
       veg.add(c);
     }
     // rocas
-    for(let i=0;i<10;i++){
-      const [x,z]=spot(240,820), r=7+rnd()*13;
+    for(let i=0;i<18;i++){
+      const [x,z]=spot(400,940), r=7+rnd()*13;
       const k=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mRock);
       k.position.set(x,r*.35,z);
       k.scale.set(1+rnd()*.6,.55+rnd()*.3,1+rnd()*.6);
       k.rotation.set(rnd(),rnd()*6.28,rnd());
       k.castShadow=true;veg.add(k);
     }
+    // pasto seco
+    const mGrass=new THREE.MeshStandardMaterial({color:0xb8a55f,side:THREE.DoubleSide,flatShading:true,roughness:1});
+    for(let i=0;i<30;i++){
+      const [x,z]=spot(390,930), g=new THREE.Group();
+      for(let j=0;j<2;j++){
+        const p=new THREE.Mesh(new THREE.PlaneGeometry(10+rnd()*6,8+rnd()*7),mGrass);
+        p.rotation.y=j*Math.PI/2+rnd()*.5;
+        p.position.y=5;
+        g.add(p);
+      }
+      g.position.set(x,0,z);g.rotation.y=rnd()*6.28;
+      veg.add(g);
+    }
+    // monte intermedio
+    const mMid=new THREE.MeshStandardMaterial({color:0x55603a,roughness:1,flatShading:true});
+    for(let i=0;i<60;i++){
+      const [x,z]=spot(860,1080), r=4+rnd()*7;
+      const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mMid);
+      b.position.set(x,r*.4,z);b.scale.y=.6;b.rotation.y=rnd()*6.28;
+      veg.add(b);
+    }
+    // monte al pie de las sierras (oeste)
+    for(let i=0;i<55;i++){
+      const A=(215+rnd()*110)*Math.PI/180, R=1060+rnd()*110, r=3.5+rnd()*5;
+      const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mFarVeg);
+      b.position.set(R*Math.sin(A),r*.35,-R*Math.cos(A));
+      b.scale.y=.6;b.rotation.y=rnd()*6.28;
+      veg.add(b);
+    }
   }
   veg.visible=false;
   scene.add(veg);
+
+  /* ---------- nubes ---------- */
+  const clouds=new THREE.Group();
+  {
+    let cs=24680;
+    const rnd=()=>{cs=(cs*16807)%2147483647;return cs/2147483647;};
+    for(let i=0;i<5;i++){
+      const c=new THREE.Group();
+      const n=3+Math.round(rnd()*2);
+      for(let j=0;j<n;j++){
+        const r=26+rnd()*32;
+        const p=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),cloudMat);
+        p.position.set((j-(n-1)/2)*r*1.1+(rnd()-.5)*20,(rnd()-.5)*14,(rnd()-.5)*30);
+        p.scale.y=.38+rnd()*.14;
+        c.add(p);
+      }
+      const a=rnd()*Math.PI*2, R=700+rnd()*500;
+      c.position.set(R*Math.sin(a),430+rnd()*240,-R*Math.cos(a));
+      clouds.add(c);
+    }
+  }
+  clouds.visible=false;
+  scene.add(clouds);
+
+  /* ---------- huella de tierra ---------- */
+  const pc=document.createElement('canvas');pc.width=128;pc.height=512;
+  const p2=pc.getContext('2d');
+  const grad=p2.createLinearGradient(0,0,128,0);
+  grad.addColorStop(0,'rgba(88,76,56,0)');
+  grad.addColorStop(.22,'rgba(88,76,56,.8)');
+  grad.addColorStop(.78,'rgba(88,76,56,.8)');
+  grad.addColorStop(1,'rgba(88,76,56,0)');
+  p2.fillStyle=grad;p2.fillRect(0,0,128,512);
+  p2.fillStyle='rgba(58,50,36,.5)';
+  p2.fillRect(38,0,12,512);p2.fillRect(78,0,12,512);
+  const path=new THREE.Mesh(
+    new THREE.PlaneGeometry(150,470),
+    new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(pc),transparent:true,depthWrite:false,roughness:1})
+  );
+  path.rotation.x=-Math.PI/2;
+  path.position.set(0,0.5,D/2+235);
+  path.receiveShadow=true;
+  path.visible=false;
+  shed.add(path);
 
   function updateSky(){
     if(!sky.visible)return;
@@ -572,6 +647,7 @@
     skyUni.sunColor.value.copy(key.color);
     matFar.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x232f4a),0.5);
     matNear.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x131a2c),0.72);
+    mFarVeg.color.copy(skyUni.horizonColor.value).lerp(new THREE.Color(0x2c3a26),0.62);
     scene.background=null;
     scene.fog=new THREE.Fog(skyUni.horizonColor.value.getHex(),800,1600);
   }
@@ -756,6 +832,8 @@
     sky.visible=envMode;
     mountains.visible=envMode;
     veg.visible=envMode;
+    clouds.visible=envMode;
+    path.visible=envMode;
     if(envMode){
       groundMat.map=dirtTex;
       groundMat.color.set(0xffffff);
@@ -804,6 +882,7 @@
   function animate(){
     requestAnimationFrame(animate);
     if(auto)tTheta+=0.0032;
+    if(clouds.visible)clouds.rotation.y+=0.00012;
     applyCam();
     const goal=doorsOpen?1.9:0;               // ~109°
     doorAngle+=(goal-doorAngle)*(reduce?1:0.07);
