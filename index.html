@@ -249,9 +249,9 @@
   key.position.set(260,420,240);
   key.castShadow=true;
   key.shadow.mapSize.set(2048,2048);
-  key.shadow.camera.left=-260; key.shadow.camera.right=260;
-  key.shadow.camera.top=320;  key.shadow.camera.bottom=-120;
-  key.shadow.camera.far=1200;
+  key.shadow.camera.left=-520; key.shadow.camera.right=520;
+  key.shadow.camera.top=520;  key.shadow.camera.bottom=-520;
+  key.shadow.camera.far=2500;
   key.shadow.bias=-0.0004;
   scene.add(key);
   const rim=new THREE.DirectionalLight(0xc9d4ff,0.35);
@@ -486,6 +486,74 @@
   mountains.visible=false;
   scene.add(mountains);
 
+  /* ---------- vegetation & rocks (monte riojano) ---------- */
+  const veg=new THREE.Group();
+  {
+    let vs=98765;
+    const rnd=()=>{vs=(vs*16807)%2147483647;return vs/2147483647;};
+    const mTrunk=new THREE.MeshStandardMaterial({color:0x6b4a32,roughness:.95,flatShading:true});
+    const mLeaf =new THREE.MeshStandardMaterial({color:0x5c6e3c,roughness:.9,flatShading:true});
+    const mBush =new THREE.MeshStandardMaterial({color:0x6a743f,roughness:.95,flatShading:true});
+    const mCact =new THREE.MeshStandardMaterial({color:0x4f7a4a,roughness:.85,flatShading:true});
+    const mRock =new THREE.MeshStandardMaterial({color:0x8a8074,roughness:1,flatShading:true});
+    function spot(minR,maxR){const a=rnd()*Math.PI*2,r=minR+rnd()*(maxR-minR);return [r*Math.sin(a),r*Math.cos(a)];}
+    // algarrobos
+    for(let i=0;i<8;i++){
+      const [x,z]=spot(260,760), t=new THREE.Group();
+      const h=40+rnd()*20;
+      const tr=new THREE.Mesh(new THREE.CylinderGeometry(3.5,6,h,6),mTrunk);
+      tr.position.y=h/2;tr.castShadow=true;t.add(tr);
+      const nf=2+Math.round(rnd());
+      for(let j=0;j<nf;j++){
+        const r=24+rnd()*16;
+        const f=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mLeaf);
+        f.position.set((rnd()-.5)*34,h+r*.5+rnd()*12,(rnd()-.5)*34);
+        f.scale.y=.55+rnd()*.15;
+        f.rotation.y=rnd()*Math.PI;
+        f.castShadow=true;t.add(f);
+      }
+      t.position.set(x,0,z);t.rotation.y=rnd()*6.28;
+      veg.add(t);
+    }
+    // jarillas
+    for(let i=0;i<18;i++){
+      const [x,z]=spot(230,800), r=8+rnd()*8;
+      const b=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mBush);
+      b.position.set(x,r*.45,z);
+      b.scale.y=.6+rnd()*.2;
+      b.rotation.y=rnd()*6.28;
+      b.castShadow=true;veg.add(b);
+    }
+    // cardones
+    for(let i=0;i<5;i++){
+      const [x,z]=spot(250,720), c=new THREE.Group();
+      const h=55+rnd()*35;
+      const body=new THREE.Mesh(new THREE.CylinderGeometry(4.5,5.5,h,7),mCact);
+      body.position.y=h/2;body.castShadow=true;c.add(body);
+      const na=1+Math.round(rnd());
+      for(let j=0;j<na;j++){
+        const side=rnd()<.5?1:-1, ay=h*(.4+rnd()*.25);
+        const ha=new THREE.Mesh(new THREE.CylinderGeometry(3,3,12,6),mCact);
+        ha.rotation.z=Math.PI/2;ha.position.set(side*9,ay,0);ha.castShadow=true;c.add(ha);
+        const va=new THREE.Mesh(new THREE.CylinderGeometry(3,3,20+rnd()*12,6),mCact);
+        va.position.set(side*14,ay+12,0);va.castShadow=true;c.add(va);
+      }
+      c.position.set(x,0,z);c.rotation.y=rnd()*6.28;
+      veg.add(c);
+    }
+    // rocas
+    for(let i=0;i<10;i++){
+      const [x,z]=spot(240,820), r=7+rnd()*13;
+      const k=new THREE.Mesh(new THREE.IcosahedronGeometry(r,0),mRock);
+      k.position.set(x,r*.35,z);
+      k.scale.set(1+rnd()*.6,.55+rnd()*.3,1+rnd()*.6);
+      k.rotation.set(rnd(),rnd()*6.28,rnd());
+      k.castShadow=true;veg.add(k);
+    }
+  }
+  veg.visible=false;
+  scene.add(veg);
+
   function updateSky(){
     if(!sky.visible)return;
     const dir=key.position.clone().normalize();
@@ -687,6 +755,7 @@
     bEnv.classList.toggle('on',envMode);
     sky.visible=envMode;
     mountains.visible=envMode;
+    veg.visible=envMode;
     if(envMode){
       groundMat.map=dirtTex;
       groundMat.color.set(0xffffff);
