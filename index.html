@@ -193,6 +193,7 @@
   <button id="bProfile">▤ TRAPEZOIDAL</button>
   <button id="bFrame">ESTRUCTURA</button>
   <button id="bSun">☀ SOL</button>
+  <button id="bEnv">🌄 AMBIENTE</button>
   <button id="bInfo">INFO</button>
   <button id="bTheme">☀ CLARO</button>
 </nav>
@@ -405,6 +406,76 @@
   compass.visible=false;
   scene.add(compass);
 
+  /* ---------- environment: sky dome + dirt ground ---------- */
+  const skyUni={
+    topColor:{value:new THREE.Color(0x3f83d6)},
+    horizonColor:{value:new THREE.Color(0xdcecfa)},
+    sunDir:{value:new THREE.Vector3(0.4,0.7,0.5)},
+    sunColor:{value:new THREE.Color(0xfff4e0)},
+    sunIntensity:{value:1.0}
+  };
+  const sky=new THREE.Mesh(
+    new THREE.SphereGeometry(1700,32,20),
+    new THREE.ShaderMaterial({
+      uniforms:skyUni,
+      side:THREE.BackSide,
+      depthWrite:false,
+      fog:false,
+      vertexShader:`
+        varying vec3 vDir;
+        void main(){
+          vDir=normalize(position);
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+        }`,
+      fragmentShader:`
+        uniform vec3 topColor,horizonColor,sunDir,sunColor;
+        uniform float sunIntensity;
+        varying vec3 vDir;
+        void main(){
+          vec3 d=normalize(vDir);
+          float t=clamp(d.y,0.0,1.0);
+          vec3 col=mix(horizonColor,topColor,pow(t,0.55));
+          float s=max(dot(d,normalize(sunDir)),0.0);
+          col+=sunColor*(pow(s,900.0)*3.0+pow(s,50.0)*0.3)*sunIntensity;
+          gl_FragColor=vec4(col,1.0);
+        }`
+    })
+  );
+  sky.visible=false;
+  scene.add(sky);
+
+  const gc=document.createElement('canvas');gc.width=gc.height=256;
+  const g2=gc.getContext('2d');
+  g2.fillStyle='#8b8264';g2.fillRect(0,0,256,256);
+  for(let i=0;i<9000;i++){
+    g2.fillStyle='rgba('+(90+Math.random()*70|0)+','+(80+Math.random()*60|0)+','+(48+Math.random()*45|0)+','+(0.12+Math.random()*0.25)+')';
+    const s=1+Math.random()*2.5;
+    g2.fillRect(Math.random()*256,Math.random()*256,s,s);
+  }
+  const dirtTex=new THREE.CanvasTexture(gc);
+  dirtTex.wrapS=dirtTex.wrapT=THREE.RepeatWrapping;
+  dirtTex.repeat.set(8,8);
+
+  function updateSky(){
+    if(!sky.visible)return;
+    const dir=key.position.clone().normalize();
+    skyUni.sunDir.value.copy(dir);
+    const sa=dir.y;
+    const t=Math.min(1,Math.max(0,sa/0.5));
+    if(sa<=0.05){
+      skyUni.topColor.value.set(0x0a1526);
+      skyUni.horizonColor.value.set(0x1d2b46);
+      skyUni.sunIntensity.value=0.0;
+    }else{
+      skyUni.topColor.value.set(0x1f4f8f).lerp(new THREE.Color(0x3f83d6),t);
+      skyUni.horizonColor.value.set(0xffa25e).lerp(new THREE.Color(0xdcecfa),t);
+      skyUni.sunIntensity.value=1.0;
+    }
+    skyUni.sunColor.value.copy(key.color);
+    scene.background=null;
+    scene.fog=new THREE.Fog(skyUni.horizonColor.value.getHex(),800,1600);
+  }
+
   /* ---------- camera control ---------- */
   const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let theta=0.65, phi=1.28, radius=460;
@@ -557,6 +628,7 @@
     const bearing=(180-o+360)%360;
     const rumbo=RUMBOS[Math.round(bearing/45)%8];
     sunLabel.textContent=(sinAlt<=0?'🌙 ':'☀ ')+MESES[m]+' · '+hh+':'+mm+' HS · PUERTAS AL '+rumbo;
+    updateSky();
   }
   [sMonth,sHour,sOrient].forEach(s=>s.addEventListener('input',()=>{if(sunMode)updateSun();}));
   bSun.onclick=()=>{
@@ -572,6 +644,28 @@
       key.intensity=keyHome.intensity;
       hemi.intensity=document.body.classList.contains('light')?1.0:0.85;
       shed.rotation.y=0;
+      updateSky();
+    }
+  };
+
+  const bEnv=document.getElementById('bEnv');
+  let envMode=false;
+  bEnv.onclick=()=>{
+    envMode=!envMode;
+    bEnv.classList.toggle('on',envMode);
+    sky.visible=envMode;
+    if(envMode){
+      groundMat.map=dirtTex;
+      groundMat.color.set(0xffffff);
+      groundMat.needsUpdate=true;
+      updateSky();
+    }else{
+      groundMat.map=null;
+      groundMat.needsUpdate=true;
+      const l=document.body.classList.contains('light');
+      groundMat.color.set(l?0xe4e1da:0x141416);
+      scene.background=new THREE.Color(l?0xf2f0ec:0x101012);
+      scene.fog=new THREE.Fog(l?0xf2f0ec:0x101012,900,1800);
     }
   };
 
@@ -586,9 +680,11 @@
     light=!light;
     document.body.classList.toggle('light',light);
     bTheme.textContent=light?'☾ OSCURO':'☀ CLARO';
-    scene.background=new THREE.Color(light?0xf2f0ec:0x101012);
-    scene.fog=new THREE.Fog(light?0xf2f0ec:0x101012,900,1800);
-    groundMat.color.set(light?0xe4e1da:0x141416);
+    if(!envMode){
+      scene.background=new THREE.Color(light?0xf2f0ec:0x101012);
+      scene.fog=new THREE.Fog(light?0xf2f0ec:0x101012,900,1800);
+      groundMat.color.set(light?0xe4e1da:0x141416);
+    }
     if(!sunMode)hemi.intensity=light?1.0:0.85;
   };
   scene.background=new THREE.Color(0x101012);
